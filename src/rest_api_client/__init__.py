@@ -25,5 +25,3 @@ __all__ = [
     "SaveRoute",
     "UpdateRoute",
 ]
-
-__version__ = "0.1.0"
