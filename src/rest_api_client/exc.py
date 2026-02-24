@@ -15,7 +15,9 @@ class RestApiInvalidUrlException(RestApiException):
 
 
 class RestApiInvalidResultSchemaException(RestApiException):
-    def __init__(self, msg: str, response_data: Any, expected_result_type: BaseModel) -> None:
+    def __init__(
+        self, msg: str, response_data: Any, expected_result_type: type[BaseModel]
+    ) -> None:
         super().__init__(msg, response_data, expected_result_type)
 
         self.message = msg
@@ -24,9 +26,9 @@ class RestApiInvalidResultSchemaException(RestApiException):
 
 
 class RestApiInvalidJsonException(RestApiException):
-    def __init__(self, msg: str, expected_result_type: BaseModel) -> None:
+    def __init__(self, msg: str, expected_result_type: type[BaseModel]) -> None:
         super().__init__(msg, expected_result_type)
-        
+
         self.message = msg
         self.expected_result_type = expected_result_type
 

@@ -14,9 +14,9 @@ from rest_api_client.exc import (
 )
 from rest_api_client.types import HttpMethod
 
-TResultModel = TypeVar('TResultModel', bound=BaseModel)
-TQueryParams = TypeVar('TQueryParams', bound=BaseModel | None)
-TInputModel = TypeVar('TInputModel', bound=BaseModel)
+TResultModel = TypeVar("TResultModel", bound=BaseModel)
+TQueryParams = TypeVar("TQueryParams", bound=BaseModel | None)
+TInputModel = TypeVar("TInputModel", bound=BaseModel)
 
 ResourceId = int | str
 
@@ -24,7 +24,9 @@ ResourceId = int | str
 class BaseRoute(ABC):
     path: str
 
-    def __init__(self, session: httpx.Client, logger: logging.Logger | None = None) -> None:
+    def __init__(
+        self, session: httpx.Client, logger: logging.Logger | None = None
+    ) -> None:
         self._session = session
         self._logger = logger or logging.getLogger(__name__)
 
@@ -38,17 +40,27 @@ class BaseRoute(ABC):
         params: _types.QueryParamTypes | None = None,
         headers: _types.Headers | None = None,
     ) -> httpx.Response:
-        self._logger.info('%d %s', method, path)
-        return self._session.request(method, path, data=data, files=files, json=json, params=params, headers=headers)
+        self._logger.info("%d %s", method, path)
+        return self._session.request(
+            method,
+            path,
+            data=data,
+            files=files,
+            json=json,
+            params=params,
+            headers=headers,
+        )
 
 
 class GenericRoute(BaseRoute, Generic[TResultModel]):
     result_model_type: type[TResultModel]
 
     def _raise_invalid_schema(self, response_data: Any, exc: BaseException) -> NoReturn:
-        err_msg = 'Received invalid response from server'
-        self._logger.error('%s', err_msg)
-        raise RestApiInvalidResultSchemaException(err_msg, response_data, self.result_model_type) from exc
+        err_msg = "Received invalid response from server"
+        self._logger.error("%s", err_msg)
+        raise RestApiInvalidResultSchemaException(
+            err_msg, response_data, self.result_model_type
+        ) from exc
 
     def _make_result_model(self, response_data: Any) -> TResultModel:
         try:
@@ -61,16 +73,18 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
             try:
                 response_data = response.json()
             except JSONDecodeError as exc:
-                self._logger.error('%s', exc)
-                raise RestApiInvalidJsonException(response.text, self.result_model_type) from exc
+                self._logger.error("%s", exc)
+                raise RestApiInvalidJsonException(
+                    response.text, self.result_model_type
+                ) from exc
             return self._make_result_model(response_data)
-        self._logger.error('%d: %s', response.status_code, response.text)
+        self._logger.error("%d: %s", response.status_code, response.text)
         raise RestApiBadRequestException(response.text, response.status_code)
 
 
 class RetrieveRoute(GenericRoute[TResultModel]):
     def get(self, resource_id: ResourceId) -> TResultModel:
-        path = f'{self.path}/{resource_id}'
+        path = f"{self.path}/{resource_id}"
         response = self._send_request(HttpMethod.GET, path)
         return self._parse_response(response)
 
@@ -97,15 +111,17 @@ class CreateRoute(SaveRoute[TResultModel, TInputModel]):
 
 class UpdateRoute(SaveRoute[TResultModel, TInputModel]):
     def update(self, resource_id: ResourceId, model: TInputModel) -> TResultModel:
-        path = f'{self.path}/{resource_id}'
+        path = f"{self.path}/{resource_id}"
         request_data = self._make_request_data(model)
         response = self._send_request(HttpMethod.PUT, path, json=request_data)
         return self._parse_response(response)
 
 
 class PartialUpdateRoute(SaveRoute[TResultModel, TInputModel]):
-    def partial_update(self, resource_id: ResourceId, model: TInputModel) -> TResultModel:
-        path = f'{self.path}/{resource_id}'
+    def partial_update(
+        self, resource_id: ResourceId, model: TInputModel
+    ) -> TResultModel:
+        path = f"{self.path}/{resource_id}"
         request_data = self._make_request_data(model)
         response = self._send_request(HttpMethod.PATCH, path, json=request_data)
         return self._parse_response(response)
@@ -113,5 +129,5 @@ class PartialUpdateRoute(SaveRoute[TResultModel, TInputModel]):
 
 class DeleteRoute(BaseRoute):
     def delete(self, resource_id: ResourceId) -> None:
-        path = f'{self.path}/{resource_id}'
+        path = f"{self.path}/{resource_id}"
         self._send_request(HttpMethod.DELETE, path)

@@ -19,7 +19,9 @@ class RestApiClient(ABC):
         super().__init__()
 
         self.base_url = parse_url(base_url)
-        self.session = session or httpx.Client(auth=auth, timeout=timeout, base_url=self.base_url)
+        self.session = session or httpx.Client(
+            auth=auth, timeout=timeout, base_url=self.base_url
+        )
         self.logger = logger or logging.getLogger(__name__)
 
     def close(self) -> None:
@@ -35,3 +37,4 @@ class RestApiClient(ABC):
         exc_tb: TracebackType | None,
     ) -> bool | None:
         self.close()
+        return None
