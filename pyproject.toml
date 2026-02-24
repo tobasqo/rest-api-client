@@ -1,6 +1,6 @@
 [project]
 name = "rest-api-client"
-version = "0.1.0"
+dynamic = ["version"]
 readme = "README.md"
 authors = [
     { name = "tobasqo", email = "szymon.j.jaskowski@gmail.com" }
