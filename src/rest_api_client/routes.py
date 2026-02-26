@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, Generic, TypeVar
 
+from httpx import USE_CLIENT_DEFAULT
 from httpx._models import Headers
 from pydantic import BaseModel, ValidationError
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from typing import Any, NoReturn
 
     from httpx import Client, Response
+    from httpx._client import UseClientDefault
     from httpx._types import HeaderTypes, QueryParamTypes, RequestData, RequestFiles
 
 TResultModel = TypeVar("TResultModel", bound=BaseModel)
@@ -51,6 +53,7 @@ class BaseRoute:
         json: Any | None = None,
         params: QueryParamTypes | None = None,
         headers: HeaderTypes | None = None,
+        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         **kwargs,
     ) -> Response:
         self._logger.info("%s %s", method, path)
@@ -64,6 +67,7 @@ class BaseRoute:
             json=json,
             params=params,
             headers=_headers,
+            follow_redirects=follow_redirects,
             **kwargs,
         )
 
