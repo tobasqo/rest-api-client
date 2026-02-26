@@ -82,15 +82,15 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
     def _raise_invalid_schema(
         self,
         response_data: Any,
-        exc: BaseException,
+        exception: ValidationError,
         result_model_type: type[TResultModel],
     ) -> NoReturn:
-        err_msg = "Received unexpected response from server"
-        _exc = RestApiInvalidResultSchemaError(
-            err_msg, response_data, result_model_type
+        message = "Received unexpected response from server"
+        rest_api_exception = RestApiInvalidResultSchemaError(
+            message, response_data, result_model_type
         )
-        self._logger.exception("%s", err_msg, exc_info=_exc)
-        raise _exc from exc
+        self._logger.exception("%s", message, exc_info=rest_api_exception)
+        raise rest_api_exception from exception
 
     def _make_result_model(
         self,
@@ -99,8 +99,8 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
     ) -> TResultModel:
         try:
             return result_model_type.model_validate(response_data)
-        except ValidationError as exc:
-            self._raise_invalid_schema(response_data, exc, result_model_type)
+        except ValidationError as exception:
+            self._raise_invalid_schema(response_data, exception, result_model_type)
 
     def _parse_response(
         self,
@@ -108,23 +108,24 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
         result_model_type: type[TResultModel],
     ) -> TResultModel:
         # TODO: mapping for more specific errors
+        response.raise_for_status()
         if MIN_OK_STATUS_CODE <= response.status_code < MAX_OK_STATUS_CODE:
             try:
                 response_data = response.json()
-            except JSONDecodeError as exc:
-                _exc: RestApiError = RestApiInvalidJsonError(
+            except JSONDecodeError as exception:
+                rest_api_exception: RestApiError = RestApiInvalidJsonError(
                     response.text, result_model_type
                 )
                 self._logger.exception(
-                    "Received response is not a valid JSON", exc_info=_exc
+                    "Received response is not a valid JSON", exc_info=rest_api_exception
                 )
-                raise _exc from exc
+                raise rest_api_exception from exception
             return self._make_result_model(response_data, result_model_type)
-        _exc = RestApiBadRequestError(response.text, response.status_code)
+        rest_api_exception = RestApiBadRequestError(response.text, response.status_code)
         self._logger.exception(
-            "%d: %s", response.status_code, response.text, exc_info=_exc
+            "%d: %s", response.status_code, response.text, exc_info=rest_api_exception
         )
-        raise _exc
+        raise rest_api_exception
 
 
 class RetrieveRoute(GenericRoute[TResultModel]):
@@ -163,15 +164,15 @@ class ListRoute(BaseRoute, ABC, Generic[TListResultModel, TQueryParams]):
     def _raise_invalid_list_result_schema(
         self,
         response_data: Any,
-        exc: Exception,
+        exception: ValidationError,
         list_result_model_type: type[TListResultModel],
     ) -> NoReturn:
-        err_msg = "Received unexpected response from server"
-        _exc = RestApiInvalidResultSchemaError(
-            err_msg, response_data, list_result_model_type
+        message = "Received unexpected response from server"
+        rest_api_exception = RestApiInvalidResultSchemaError(
+            message, response_data, list_result_model_type
         )
-        self._logger.exception("%s", err_msg, exc_info=_exc)
-        raise _exc from exc
+        self._logger.exception("%s", message, exc_info=rest_api_exception)
+        raise rest_api_exception from exception
 
     def _make_list_result_model(
         self,
@@ -180,9 +181,9 @@ class ListRoute(BaseRoute, ABC, Generic[TListResultModel, TQueryParams]):
     ) -> TListResultModel:
         try:
             return self._validate_list_result_model(response_data)
-        except ValidationError as exc:
+        except ValidationError as exception:
             self._raise_invalid_list_result_schema(
-                response_data, exc, list_result_model_type
+                response_data, exception, list_result_model_type
             )
 
     def _parse_response_list_result(
@@ -194,20 +195,20 @@ class ListRoute(BaseRoute, ABC, Generic[TListResultModel, TQueryParams]):
         if MIN_OK_STATUS_CODE <= response.status_code < MAX_OK_STATUS_CODE:
             try:
                 response_data = response.json()
-            except JSONDecodeError as exc:
-                _exc: RestApiError = RestApiInvalidJsonError(
+            except JSONDecodeError as exception:
+                rest_api_exception: RestApiError = RestApiInvalidJsonError(
                     response.text, list_result_model_type
                 )
                 self._logger.exception(
-                    "Received response is not a valid JSON", exc_info=_exc
+                    "Received response is not a valid JSON", exc_info=rest_api_exception
                 )
-                raise _exc from exc
+                raise rest_api_exception from exception
             return self._make_list_result_model(response_data, list_result_model_type)
-        _exc = RestApiBadRequestError(response.text, response.status_code)
+        rest_api_exception = RestApiBadRequestError(response.text, response.status_code)
         self._logger.exception(
-            "%d: %s", response.status_code, response.text, exc_info=_exc
+            "%d: %s", response.status_code, response.text, exc_info=rest_api_exception
         )
-        raise _exc
+        raise rest_api_exception
 
 
 class SaveRoute(GenericRoute[TResultModel], Generic[TInputModel, TResultModel]):
