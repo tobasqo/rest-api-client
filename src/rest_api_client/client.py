@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC
 from typing import TYPE_CHECKING
 
 from httpx import Auth, Client, Timeout
@@ -11,8 +10,10 @@ from rest_api_client.utils.urls import parse_url
 if TYPE_CHECKING:
     from types import TracebackType
 
+    from typing_extensions import Self
 
-class RestApiClient(ABC):
+
+class RestApiClient:
     def __init__(
         self,
         base_url: str,
@@ -32,7 +33,7 @@ class RestApiClient(ABC):
     def close(self) -> None:
         self._session.close()
 
-    def __enter__(self) -> RestApiClient:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(

@@ -1,16 +1,16 @@
 from rest_api_client.client import RestApiClient
-from rest_api_client.types import HttpMethod
 from rest_api_client.routes import (
     BaseRoute,
-    GenericRoute,
-    RetrieveRoute,
-    ListRoute,
-    SaveRoute,
     CreateRoute,
-    UpdateRoute,
     DeleteRoute,
+    GenericRoute,
+    ListRoute,
     PartialUpdateRoute,
+    RetrieveRoute,
+    SaveRoute,
+    UpdateRoute,
 )
+from rest_api_client.types import HttpMethod
 
 __all__ = [
     "BaseRoute",
