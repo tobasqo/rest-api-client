@@ -146,7 +146,7 @@ class RetrieveRoute(GenericRoute[TResultModel]):
         return self._get(f"{path}/{resource_id}", result_model_type)
 
 
-class ListRoute(BaseRoute, ABC, Generic[TListResultModel, TQueryParams]):
+class ListRoute(ABC, BaseRoute, Generic[TListResultModel, TQueryParams]):
     def _get_list(
         self,
         path: str,
