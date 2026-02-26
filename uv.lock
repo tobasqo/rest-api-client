@@ -381,6 +381,7 @@ source = { editable = "." }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
+    { name = "ruff" },
     { name = "typing-extensions" },
 ]
 
@@ -394,6 +395,7 @@ dev = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "ruff", specifier = ">=0.15.2" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
 ]
 
