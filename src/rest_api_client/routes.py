@@ -8,16 +8,17 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from rest_api_client.exc import (
-    RestApiInvalidResultSchemaException,
-    RestApiInvalidJsonException,
     RestApiBadRequestException,
+    RestApiInvalidJsonException,
+    RestApiInvalidResultSchemaException,
 )
 from rest_api_client.types import HttpMethod
 
 if TYPE_CHECKING:
     from typing import Any, NoReturn
+
     from httpx import Client, Response
-    from httpx._types import RequestData, RequestFiles, HeaderTypes, QueryParamTypes
+    from httpx._types import HeaderTypes, QueryParamTypes, RequestData, RequestFiles
 
 TResultModel = TypeVar("TResultModel", bound=BaseModel)
 TListResultModel = TypeVar("TListResultModel", bound=BaseModel)
@@ -27,10 +28,12 @@ TInputModel = TypeVar("TInputModel", bound=BaseModel)
 ResourceId = int | str
 
 
-class BaseRoute(ABC):
-    path: str
+# TODO: split routes into mixins and commons
 
+
+class BaseRoute(ABC):
     def __init__(self, session: Client, logger: logging.Logger | None = None) -> None:
+        super().__init__()
         self._session = session
         self._logger = logger or logging.getLogger(__name__)
 
@@ -70,7 +73,9 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
         ) from exc
 
     def _make_result_model(
-        self, response_data: Any, result_model_type: type[TResultModel]
+        self,
+        response_data: Any,
+        result_model_type: type[TResultModel],
     ) -> TResultModel:
         try:
             return result_model_type.model_validate(response_data)
@@ -78,8 +83,11 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
             self._raise_invalid_schema(response_data, exc, result_model_type)
 
     def _parse_response(
-        self, response: Response, result_model_type: type[TResultModel]
+        self,
+        response: Response,
+        result_model_type: type[TResultModel],
     ) -> TResultModel:
+        # TODO: dict for more specific errors
         if 200 <= response.status_code < 400:
             try:
                 response_data = response.json()
@@ -94,21 +102,33 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
 
 
 class RetrieveRoute(GenericRoute[TResultModel]):
-    retrieve_result_model_type: type[TResultModel]
-
-    def get(self, resource_id: ResourceId) -> TResultModel:
-        path = f"{self.path}/{resource_id}"
+    def _get(
+        self,
+        path: str,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
         response = self._send_request(HttpMethod.GET, path)
-        return self._parse_response(response, self.retrieve_result_model_type)
+        return self._parse_response(response, result_model_type)
+
+    def _get_by_id(
+        self,
+        path: str,
+        resource_id: ResourceId,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return self._get(f"{path}/{resource_id}", result_model_type)
 
 
 class ListRoute(BaseRoute, Generic[TListResultModel, TQueryParams]):
-    list_result_model_type: type[TListResultModel]
-
-    def get_list(self, params: TQueryParams | None = None) -> TListResultModel:
+    def _get_list(
+        self,
+        path: str,
+        list_result_model_type: type[TListResultModel],
+        params: TQueryParams | None = None,
+    ) -> TListResultModel:
         params_dict = None if params is None else params.model_dump(exclude_unset=True)
-        response = self._send_request(HttpMethod.GET, self.path, params=params_dict)
-        return self._parse_response_list_result(response)
+        response = self._send_request(HttpMethod.GET, path, params=params_dict)
+        return self._parse_response_list_result(response, list_result_model_type)
 
     @abstractmethod
     def _validate_list_result_model(self, response_data: Any) -> TListResultModel:
@@ -118,77 +138,115 @@ class ListRoute(BaseRoute, Generic[TListResultModel, TQueryParams]):
         self,
         response_data: Any,
         exc: Exception,
+        list_result_model_type: type[TListResultModel],
     ) -> NoReturn:
         err_msg = "Received invalid response from server"
         self._logger.error("%s", err_msg)
         raise RestApiInvalidResultSchemaException(
-            err_msg, response_data, self.list_result_model_type
+            err_msg, response_data, list_result_model_type
         ) from exc
 
-    def _make_list_result_model(self, response_data: Any) -> TListResultModel:
+    def _make_list_result_model(
+        self,
+        response_data: Any,
+        list_result_model_type: type[TListResultModel],
+    ) -> TListResultModel:
         try:
             return self._validate_list_result_model(response_data)
         except ValidationError as exc:
-            self._raise_invalid_list_result_schema(response_data, exc)
+            self._raise_invalid_list_result_schema(
+                response_data, exc, list_result_model_type
+            )
 
-    def _parse_response_list_result(self, response: Response) -> TListResultModel:
+    def _parse_response_list_result(
+        self,
+        response: Response,
+        list_result_model_type: type[TListResultModel],
+    ) -> TListResultModel:
+        # TODO: dict for more specific errors
         if 200 <= response.status_code < 400:
             try:
                 response_data = response.json()
             except JSONDecodeError as exc:
                 self._logger.error("%s", exc)
                 raise RestApiInvalidJsonException(
-                    response.text, self.list_result_model_type
+                    response.text, list_result_model_type
                 ) from exc
-            return self._make_list_result_model(response_data)
+            return self._make_list_result_model(response_data, list_result_model_type)
         self._logger.error("%d: %s", response.status_code, response.text)
         raise RestApiBadRequestException(response.text, response.status_code)
 
 
-class SaveRoute(GenericRoute[TResultModel], Generic[TResultModel, TInputModel]):
+class SaveRoute(GenericRoute[TResultModel], Generic[TInputModel, TResultModel]):
     @staticmethod
     def _make_request_data(model: TInputModel) -> Any:
         return model.model_dump(exclude_unset=True)
 
-
-class CreateRoute(
-    SaveRoute[TResultModel, TInputModel], Generic[TResultModel, TInputModel]
-):
-    create_result_model_type: type[TResultModel]
-
-    def create(self, model: TInputModel) -> TResultModel:
-        request_data = self._make_request_data(model)
-        response = self._send_request(HttpMethod.POST, self.path, json=request_data)
-        return self._parse_response(response, self.create_result_model_type)
-
-
-class UpdateRoute(
-    SaveRoute[TResultModel, TInputModel], Generic[TResultModel, TInputModel]
-):
-    update_result_model_type: type[TResultModel]
-
-    def update(self, resource_id: ResourceId, model: TInputModel) -> TResultModel:
-        path = f"{self.path}/{resource_id}"
-        request_data = self._make_request_data(model)
-        response = self._send_request(HttpMethod.PUT, path, json=request_data)
-        return self._parse_response(response, self.update_result_model_type)
-
-
-class PartialUpdateRoute(
-    SaveRoute[TResultModel, TInputModel], Generic[TResultModel, TInputModel]
-):
-    partial_update_result_model_type: type[TResultModel]
-
-    def partial_update(
-        self, resource_id: ResourceId, model: TInputModel
+    def _upload(
+        self,
+        method: HttpMethod,
+        path: str,
+        model: TInputModel,
+        result_model_type: type[TResultModel],
     ) -> TResultModel:
-        path = f"{self.path}/{resource_id}"
         request_data = self._make_request_data(model)
-        response = self._send_request(HttpMethod.PATCH, path, json=request_data)
-        return self._parse_response(response, self.partial_update_result_model_type)
+        response = self._send_request(method, path, json=request_data)
+        return self._parse_response(response, result_model_type)
+
+
+class CreateRoute(SaveRoute[TInputModel, TResultModel]):
+    def _create(
+        self,
+        path: str,
+        model: TInputModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return self._upload(HttpMethod.POST, path, model, result_model_type)
+
+
+class UpdateRoute(SaveRoute[TInputModel, TResultModel]):
+    def _update(
+        self,
+        path: str,
+        model: TInputModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return self._upload(HttpMethod.PUT, path, model, result_model_type)
+
+    def _update_by_id(
+        self,
+        path: str,
+        resource_id: ResourceId,
+        model: TInputModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return self._update(f"{path}/{resource_id}", model, result_model_type)
+
+
+class PartialUpdateRoute(SaveRoute[TInputModel, TResultModel]):
+    def _partial_update(
+        self,
+        path: str,
+        model: TInputModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return self._upload(HttpMethod.PATCH, path, model, result_model_type)
+
+    def _partial_update_by_id(
+        self,
+        path: str,
+        resource_id: ResourceId,
+        model: TInputModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return self._partial_update(f"{path}/{resource_id}", model, result_model_type)
 
 
 class DeleteRoute(BaseRoute):
-    def delete(self, resource_id: ResourceId) -> None:
-        path = f"{self.path}/{resource_id}"
+    # TODO: allow for optional return type on delete
+
+    def _delete(self, path: str) -> None:
         self._send_request(HttpMethod.DELETE, path)
+
+    def _delete_by_id(self, path: str, resource_id: ResourceId) -> None:
+        return self._delete(f"{path}/{resource_id}")
