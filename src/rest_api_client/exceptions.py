@@ -1,6 +1,11 @@
-from typing import Any
+from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+
+    from rest_api_client.status_codes import HttpStatusCode
 
 
 class RestApiError(Exception):
@@ -8,33 +13,28 @@ class RestApiError(Exception):
 
 
 class RestApiInvalidUrlError(RestApiError):
-    def __init__(self, url: str) -> None:
-        super().__init__(url)
-        self.message = url
+    pass
 
 
-class RestApiInvalidResultSchemaError(RestApiError):
+class RestApiInvalidJsonError(RestApiError):
+    def __init__(self, message: str, expected_result_type: type[BaseModel]) -> None:
+        super().__init__(message)
+        self.expected_result_type = expected_result_type
+
+
+class RestApiUnexpectedResponseSchemaError(RestApiError):
     def __init__(
         self,
         message: str,
         response_data: Any,
         expected_result_type: type[BaseModel],
     ) -> None:
-        super().__init__(message, response_data, expected_result_type)
-        self.message = message
+        super().__init__(message)
         self.response_data = response_data
         self.expected_result_type = expected_result_type
 
 
-class RestApiInvalidJsonError(RestApiError):
-    def __init__(self, message: str, expected_result_type: type[BaseModel]) -> None:
-        super().__init__(message, expected_result_type)
-        self.message = message
-        self.expected_result_type = expected_result_type
-
-
-class RestApiBadRequestError(RestApiError):
-    def __init__(self, message: str, status_code: int) -> None:
-        super().__init__(message, status_code)
-        self.message = message
+class RestApiHttpError(RestApiError):
+    def __init__(self, status_code: HttpStatusCode) -> None:
+        super().__init__(status_code)
         self.status_code = status_code
