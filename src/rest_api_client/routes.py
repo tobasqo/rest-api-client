@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, Generic, TypeVar
 
+from httpx._models import Headers
 from pydantic import BaseModel, ValidationError
 
 from rest_api_client.exc import (
@@ -46,8 +47,11 @@ class BaseRoute(ABC):
         json: Any | None = None,
         params: QueryParamTypes | None = None,
         headers: HeaderTypes | None = None,
+        **kwargs,
     ) -> Response:
         self._logger.info("%s %s", method, path)
+        _headers = self._get_default_headers()
+        _headers.update(headers)
         return self._session.request(
             method,
             path,
@@ -55,7 +59,18 @@ class BaseRoute(ABC):
             files=files,
             json=json,
             params=params,
-            headers=headers,
+            headers=_headers,
+            **kwargs,
+        )
+
+    # noinspection PyMethodMayBeStatic
+    def _get_default_headers(self) -> Headers:
+        # TODO: update
+        return Headers(
+            {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
         )
 
 
@@ -87,7 +102,7 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
         response: Response,
         result_model_type: type[TResultModel],
     ) -> TResultModel:
-        # TODO: dict for more specific errors
+        # TODO: mapping for more specific errors
         if 200 <= response.status_code < 400:
             try:
                 response_data = response.json()
@@ -163,7 +178,7 @@ class ListRoute(BaseRoute, Generic[TListResultModel, TQueryParams]):
         response: Response,
         list_result_model_type: type[TListResultModel],
     ) -> TListResultModel:
-        # TODO: dict for more specific errors
+        # TODO: mapping for more specific errors
         if 200 <= response.status_code < 400:
             try:
                 response_data = response.json()
