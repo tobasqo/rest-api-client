@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from httpx import Auth, Client, Timeout
+from httpx import URL, Auth, Client, Timeout
 
 from rest_api_client.utils.urls import parse_url
 
@@ -24,7 +24,7 @@ class RestApiClient:
     ) -> None:
         super().__init__()
 
-        self.base_url = parse_url(base_url)
+        self.base_url = URL(parse_url(base_url))
         self._session = session or Client(
             auth=auth, timeout=timeout, base_url=self.base_url
         )
