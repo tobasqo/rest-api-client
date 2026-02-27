@@ -1,21 +1,27 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from json import JSONDecodeError
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic
 
 from httpx import USE_CLIENT_DEFAULT, HTTPStatusError
 from httpx._models import Headers
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from rest_api_client.exceptions import (
     RestApiHttpError,
     RestApiInvalidJsonError,
     RestApiUnexpectedResponseSchemaError,
 )
+from rest_api_client.http_methods import HttpMethod
+from rest_api_client.routes._models import (
+    TInputModel,
+    TListResultModel,
+    TQueryParams,
+    TResultModel,
+)
 from rest_api_client.status_codes import HttpStatusCode
-from rest_api_client.types import HttpMethod
 
 if TYPE_CHECKING:
     from typing import Any, NoReturn
@@ -23,13 +29,6 @@ if TYPE_CHECKING:
     from httpx import Client, Response
     from httpx._client import UseClientDefault
     from httpx._types import HeaderTypes, QueryParamTypes, RequestData, RequestFiles
-
-TResultModel = TypeVar("TResultModel", bound=BaseModel)
-TListResultModel = TypeVar("TListResultModel", bound=BaseModel)
-TQueryParams = TypeVar("TQueryParams", bound=BaseModel | None)
-TInputModel = TypeVar("TInputModel", bound=BaseModel)
-
-# TODO: split routes into mixins and commons
 
 
 class BaseMixin:
@@ -135,14 +134,16 @@ class GenericMixin(BaseMixin, Generic[TResultModel]):
         raise rest_api_exception from exception
 
 
-class RetrieveMixin(GenericMixin[TResultModel]):
+class GetMixin(GenericMixin[TResultModel]):
     def _get(self, path: str, result_model_type: type[TResultModel]) -> TResultModel:
         response = self._send_request(HttpMethod.GET, path)
         return self._handle_response(response, result_model_type)
 
 
 class ListMixin(
-    ABC, GenericMixin[TListResultModel], Generic[TListResultModel, TQueryParams]
+    GenericMixin[TListResultModel],
+    Generic[TListResultModel, TQueryParams],
+    metaclass=ABCMeta,
 ):
     def _get_list(
         self,
@@ -155,8 +156,10 @@ class ListMixin(
         return self._handle_list_response(response, list_result_model_type)
 
     @abstractmethod
-    def _validate_list_result_model(self, response_data: Any) -> TListResultModel:
-        pass
+    def _validate_list_result_model(
+        self, response_data: Any, result_model_type: type[TListResultModel]
+    ) -> TListResultModel:
+        raise NotImplementedError
 
     def _handle_list_response(
         self,
@@ -173,19 +176,13 @@ class ListMixin(
         list_result_model_type: type[TListResultModel],
     ) -> TListResultModel:
         try:
-            return self._validate_list_result_model(response_data)
+            return self._validate_list_result_model(
+                response_data, list_result_model_type
+            )
         except ValidationError as exception:
             self._raise_invalid_response_schema(
                 response_data, exception, list_result_model_type
             )
-
-
-class ReadMixin(
-    RetrieveMixin[TResultModel],
-    ListMixin[TListResultModel, TQueryParams],
-    ABC,
-):
-    pass
 
 
 class UploadMixin(GenericMixin[TResultModel], Generic[TInputModel, TResultModel]):
@@ -225,7 +222,7 @@ class PutMixin(UploadMixin[TInputModel, TResultModel]):
         return self._upload(HttpMethod.PUT, path, model, result_model_type)
 
 
-class PatchUpdateMixin(UploadMixin[TInputModel, TResultModel]):
+class PatchMixin(UploadMixin[TInputModel, TResultModel]):
     def _patch(
         self,
         path: str,
