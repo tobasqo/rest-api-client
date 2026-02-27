@@ -10,7 +10,6 @@ from httpx._models import Headers
 from pydantic import BaseModel, ValidationError
 
 from rest_api_client.exceptions import (
-    RestApiError,
     RestApiHttpError,
     RestApiInvalidJsonError,
     RestApiUnexpectedResponseSchemaError,
@@ -29,8 +28,6 @@ TResultModel = TypeVar("TResultModel", bound=BaseModel)
 TListResultModel = TypeVar("TListResultModel", bound=BaseModel)
 TQueryParams = TypeVar("TQueryParams", bound=BaseModel | None)
 TInputModel = TypeVar("TInputModel", bound=BaseModel)
-
-ResourceId = int | str
 
 # TODO: split routes into mixins and commons
 
@@ -78,14 +75,58 @@ class BaseRoute:
             }
         )
 
+    def _check_api_error(self, response: Response) -> None:
+        try:
+            response.raise_for_status()
+        except HTTPStatusError as exception:
+            status_code = HttpStatusCode.from_value(response.status_code)
+            rest_api_exception = RestApiHttpError(status_code)
+            self._logger.exception(
+                "%s", response.status_code, exc_info=rest_api_exception
+            )
+            raise rest_api_exception from exception
+
+    def _get_data_from_response(self, response: Response) -> Any:
+        try:
+            return response.json()
+        except JSONDecodeError as exception:
+            rest_api_exception = RestApiInvalidJsonError(response.text)
+            self._logger.exception(
+                "Received response is not a valid JSON", exc_info=rest_api_exception
+            )
+            raise rest_api_exception from exception
+
 
 class GenericRoute(BaseRoute, Generic[TResultModel]):
-    def _raise_invalid_schema(
+    def _handle_response(
+        self,
+        response: Response,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        self._check_api_error(response)
+        response_data = self._get_data_from_response(response)
+        return self._make_result_model(response_data, result_model_type)
+
+    def _make_result_model(
+        self,
+        response_data: Any,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        assert result_model_type is not None
+        try:
+            return result_model_type.model_validate(response_data)
+        except ValidationError as exception:
+            self._raise_invalid_response_schema(
+                response_data, exception, result_model_type
+            )
+
+    def _raise_invalid_response_schema(
         self,
         response_data: Any,
         exception: ValidationError,
         result_model_type: type[TResultModel],
     ) -> NoReturn:
+        assert result_model_type is not None
         message = "Received unexpected response from server"
         rest_api_exception = RestApiUnexpectedResponseSchemaError(
             message, response_data, result_model_type
@@ -93,62 +134,16 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
         self._logger.exception("%s", message, exc_info=rest_api_exception)
         raise rest_api_exception from exception
 
-    def _make_result_model(
-        self,
-        response_data: Any,
-        result_model_type: type[TResultModel],
-    ) -> TResultModel:
-        try:
-            return result_model_type.model_validate(response_data)
-        except ValidationError as exception:
-            self._raise_invalid_schema(response_data, exception, result_model_type)
-
-    def _parse_response(
-        self,
-        response: Response,
-        result_model_type: type[TResultModel],
-    ) -> TResultModel:
-        try:
-            response.raise_for_status()
-        except HTTPStatusError as exception:
-            status_code = HttpStatusCode.from_value(response.status_code)
-            rest_api_exception: RestApiError = RestApiHttpError(status_code)
-            self._logger.exception(
-                "%s", response.status_code, exc_info=rest_api_exception
-            )
-            raise rest_api_exception from exception
-        try:
-            response_data = response.json()
-        except JSONDecodeError as exception:
-            rest_api_exception = RestApiInvalidJsonError(
-                response.text, result_model_type
-            )
-            self._logger.exception(
-                "Received response is not a valid JSON", exc_info=rest_api_exception
-            )
-            raise rest_api_exception from exception
-        return self._make_result_model(response_data, result_model_type)
-
 
 class RetrieveRoute(GenericRoute[TResultModel]):
-    def _get(
-        self,
-        path: str,
-        result_model_type: type[TResultModel],
-    ) -> TResultModel:
+    def _get(self, path: str, result_model_type: type[TResultModel]) -> TResultModel:
         response = self._send_request(HttpMethod.GET, path)
-        return self._parse_response(response, result_model_type)
-
-    def _get_by_id(
-        self,
-        path: str,
-        resource_id: ResourceId,
-        result_model_type: type[TResultModel],
-    ) -> TResultModel:
-        return self._get(f"{path}/{resource_id}", result_model_type)
+        return self._handle_response(response, result_model_type)
 
 
-class ListRoute(ABC, BaseRoute, Generic[TListResultModel, TQueryParams]):
+class ListRoute(
+    ABC, GenericRoute[TListResultModel], Generic[TListResultModel, TQueryParams]
+):
     def _get_list(
         self,
         path: str,
@@ -157,24 +152,20 @@ class ListRoute(ABC, BaseRoute, Generic[TListResultModel, TQueryParams]):
     ) -> TListResultModel:
         params_dict = None if params is None else params.model_dump(exclude_unset=True)
         response = self._send_request(HttpMethod.GET, path, params=params_dict)
-        return self._parse_response_list_result(response, list_result_model_type)
+        return self._handle_list_response(response, list_result_model_type)
 
     @abstractmethod
     def _validate_list_result_model(self, response_data: Any) -> TListResultModel:
         pass
 
-    def _raise_invalid_list_result_schema(
+    def _handle_list_response(
         self,
-        response_data: Any,
-        exception: ValidationError,
+        response: Response,
         list_result_model_type: type[TListResultModel],
-    ) -> NoReturn:
-        message = "Received unexpected response from server"
-        rest_api_exception = RestApiUnexpectedResponseSchemaError(
-            message, response_data, list_result_model_type
-        )
-        self._logger.exception("%s", message, exc_info=rest_api_exception)
-        raise rest_api_exception from exception
+    ) -> TListResultModel:
+        self._check_api_error(response)
+        response_data = self._get_data_from_response(response)
+        return self._make_list_result_model(response_data, list_result_model_type)
 
     def _make_list_result_model(
         self,
@@ -184,42 +175,20 @@ class ListRoute(ABC, BaseRoute, Generic[TListResultModel, TQueryParams]):
         try:
             return self._validate_list_result_model(response_data)
         except ValidationError as exception:
-            self._raise_invalid_list_result_schema(
+            self._raise_invalid_response_schema(
                 response_data, exception, list_result_model_type
             )
 
-    def _parse_response_list_result(
-        self,
-        response: Response,
-        list_result_model_type: type[TListResultModel],
-    ) -> TListResultModel:
-        try:
-            response.raise_for_status()
-        except HTTPStatusError as exception:
-            status_code = HttpStatusCode.from_value(response.status_code)
-            rest_api_exception: RestApiError = RestApiHttpError(status_code)
-            self._logger.exception(
-                "%s", response.status_code, exc_info=rest_api_exception
-            )
-            raise rest_api_exception from exception
-        try:
-            response_data = response.json()
-        except JSONDecodeError as exception:
-            rest_api_exception = RestApiInvalidJsonError(
-                response.text, list_result_model_type
-            )
-            self._logger.exception(
-                "Received response is not a valid JSON", exc_info=rest_api_exception
-            )
-            raise rest_api_exception from exception
-        return self._make_list_result_model(response_data, list_result_model_type)
+
+class ReadRoute(
+    RetrieveRoute[TResultModel],
+    ListRoute[TListResultModel, TQueryParams],
+    ABC,
+):
+    pass
 
 
 class SaveRoute(GenericRoute[TResultModel], Generic[TInputModel, TResultModel]):
-    @staticmethod
-    def _make_request_data(model: TInputModel) -> Any:
-        return model.model_dump(exclude_unset=True)
-
     def _upload(
         self,
         method: HttpMethod,
@@ -229,7 +198,11 @@ class SaveRoute(GenericRoute[TResultModel], Generic[TInputModel, TResultModel]):
     ) -> TResultModel:
         request_data = self._make_request_data(model)
         response = self._send_request(method, path, json=request_data)
-        return self._parse_response(response, result_model_type)
+        return self._handle_response(response, result_model_type)
+
+    @staticmethod
+    def _make_request_data(model: TInputModel) -> Any:
+        return model.model_dump(exclude_unset=True)
 
 
 class CreateRoute(SaveRoute[TInputModel, TResultModel]):
@@ -251,15 +224,6 @@ class UpdateRoute(SaveRoute[TInputModel, TResultModel]):
     ) -> TResultModel:
         return self._upload(HttpMethod.PUT, path, model, result_model_type)
 
-    def _update_by_id(
-        self,
-        path: str,
-        resource_id: ResourceId,
-        model: TInputModel,
-        result_model_type: type[TResultModel],
-    ) -> TResultModel:
-        return self._update(f"{path}/{resource_id}", model, result_model_type)
-
 
 class PartialUpdateRoute(SaveRoute[TInputModel, TResultModel]):
     def _partial_update(
@@ -270,21 +234,9 @@ class PartialUpdateRoute(SaveRoute[TInputModel, TResultModel]):
     ) -> TResultModel:
         return self._upload(HttpMethod.PATCH, path, model, result_model_type)
 
-    def _partial_update_by_id(
-        self,
-        path: str,
-        resource_id: ResourceId,
-        model: TInputModel,
-        result_model_type: type[TResultModel],
-    ) -> TResultModel:
-        return self._partial_update(f"{path}/{resource_id}", model, result_model_type)
-
 
 class DeleteRoute(BaseRoute):
     # TODO: allow for optional return type on delete
 
     def _delete(self, path: str) -> None:
         self._send_request(HttpMethod.DELETE, path)
-
-    def _delete_by_id(self, path: str, resource_id: ResourceId) -> None:
-        return self._delete(f"{path}/{resource_id}")

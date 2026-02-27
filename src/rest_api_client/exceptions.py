@@ -17,9 +17,8 @@ class RestApiInvalidUrlError(RestApiError):
 
 
 class RestApiInvalidJsonError(RestApiError):
-    def __init__(self, message: str, expected_result_type: type[BaseModel]) -> None:
+    def __init__(self, message: str) -> None:
         super().__init__(message)
-        self.expected_result_type = expected_result_type
 
 
 class RestApiUnexpectedResponseSchemaError(RestApiError):
