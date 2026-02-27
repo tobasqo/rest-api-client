@@ -32,7 +32,7 @@ TInputModel = TypeVar("TInputModel", bound=BaseModel)
 # TODO: split routes into mixins and commons
 
 
-class BaseRoute:
+class BaseMixin:
     def __init__(self, session: Client, logger: logging.Logger | None = None) -> None:
         super().__init__()
         self._session = session
@@ -97,7 +97,7 @@ class BaseRoute:
             raise rest_api_exception from exception
 
 
-class GenericRoute(BaseRoute, Generic[TResultModel]):
+class GenericMixin(BaseMixin, Generic[TResultModel]):
     def _handle_response(
         self,
         response: Response,
@@ -135,14 +135,14 @@ class GenericRoute(BaseRoute, Generic[TResultModel]):
         raise rest_api_exception from exception
 
 
-class RetrieveRoute(GenericRoute[TResultModel]):
+class RetrieveMixin(GenericMixin[TResultModel]):
     def _get(self, path: str, result_model_type: type[TResultModel]) -> TResultModel:
         response = self._send_request(HttpMethod.GET, path)
         return self._handle_response(response, result_model_type)
 
 
-class ListRoute(
-    ABC, GenericRoute[TListResultModel], Generic[TListResultModel, TQueryParams]
+class ListMixin(
+    ABC, GenericMixin[TListResultModel], Generic[TListResultModel, TQueryParams]
 ):
     def _get_list(
         self,
@@ -180,15 +180,15 @@ class ListRoute(
             )
 
 
-class ReadRoute(
-    RetrieveRoute[TResultModel],
-    ListRoute[TListResultModel, TQueryParams],
+class ReadMixin(
+    RetrieveMixin[TResultModel],
+    ListMixin[TListResultModel, TQueryParams],
     ABC,
 ):
     pass
 
 
-class SaveRoute(GenericRoute[TResultModel], Generic[TInputModel, TResultModel]):
+class UploadMixin(GenericMixin[TResultModel], Generic[TInputModel, TResultModel]):
     def _upload(
         self,
         method: HttpMethod,
@@ -205,8 +205,8 @@ class SaveRoute(GenericRoute[TResultModel], Generic[TInputModel, TResultModel]):
         return model.model_dump(exclude_unset=True)
 
 
-class CreateRoute(SaveRoute[TInputModel, TResultModel]):
-    def _create(
+class PostMixin(UploadMixin[TInputModel, TResultModel]):
+    def _post(
         self,
         path: str,
         model: TInputModel,
@@ -215,8 +215,8 @@ class CreateRoute(SaveRoute[TInputModel, TResultModel]):
         return self._upload(HttpMethod.POST, path, model, result_model_type)
 
 
-class UpdateRoute(SaveRoute[TInputModel, TResultModel]):
-    def _update(
+class PutMixin(UploadMixin[TInputModel, TResultModel]):
+    def _put(
         self,
         path: str,
         model: TInputModel,
@@ -225,8 +225,8 @@ class UpdateRoute(SaveRoute[TInputModel, TResultModel]):
         return self._upload(HttpMethod.PUT, path, model, result_model_type)
 
 
-class PartialUpdateRoute(SaveRoute[TInputModel, TResultModel]):
-    def _partial_update(
+class PatchUpdateMixin(UploadMixin[TInputModel, TResultModel]):
+    def _patch(
         self,
         path: str,
         model: TInputModel,
@@ -235,7 +235,7 @@ class PartialUpdateRoute(SaveRoute[TInputModel, TResultModel]):
         return self._upload(HttpMethod.PATCH, path, model, result_model_type)
 
 
-class DeleteRoute(BaseRoute):
+class DeleteMixin(BaseMixin):
     # TODO: allow for optional return type on delete
 
     def _delete(self, path: str) -> None:
