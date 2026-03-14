@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Generic
 
 from httpx import USE_CLIENT_DEFAULT, HTTPStatusError
 from httpx._models import Headers
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from rest_api_client.exceptions import (
     RestApiHttpError,
@@ -15,12 +15,7 @@ from rest_api_client.exceptions import (
     RestApiUnexpectedResponseSchemaError,
 )
 from rest_api_client.http_methods import HttpMethod
-from rest_api_client.routes._models import (
-    TInputModel,
-    TListResultModel,
-    TQueryParams,
-    TResultModel,
-)
+from rest_api_client.routes._models import TListResultModel
 from rest_api_client.status_codes import HttpStatusCode
 
 if TYPE_CHECKING:
@@ -29,6 +24,15 @@ if TYPE_CHECKING:
     from httpx import Client, Response
     from httpx._client import UseClientDefault
     from httpx._types import HeaderTypes, QueryParamTypes, RequestData, RequestFiles
+
+    from rest_api_client.routes._models import TResultModel
+
+"""
+TODOs:
+- async client and requests
+- request/response streaming
+- custom transports with rate limiting
+"""
 
 
 class BaseMixin:
@@ -80,9 +84,7 @@ class BaseMixin:
         except HTTPStatusError as exception:
             status_code = HttpStatusCode.from_value(response.status_code)
             rest_api_exception = RestApiHttpError(status_code)
-            self._logger.exception(
-                "%s", response.status_code, exc_info=rest_api_exception
-            )
+            self._logger.exception("%s", response.status_code, exc_info=rest_api_exception)
             raise rest_api_exception from exception
 
     def _get_data_from_response(self, response: Response) -> Any:
@@ -96,7 +98,7 @@ class BaseMixin:
             raise rest_api_exception from exception
 
 
-class GenericMixin(BaseMixin, Generic[TResultModel]):
+class ResultMixin(BaseMixin):
     def _handle_response(
         self,
         response: Response,
@@ -115,15 +117,13 @@ class GenericMixin(BaseMixin, Generic[TResultModel]):
         try:
             return result_model_type.model_validate(response_data)
         except ValidationError as exception:
-            self._raise_invalid_response_schema(
-                response_data, exception, result_model_type
-            )
+            self._raise_invalid_response_schema(response_data, exception, result_model_type)
 
     def _raise_invalid_response_schema(
         self,
         response_data: Any,
         exception: ValidationError,
-        result_model_type: type[TResultModel],
+        result_model_type: type[BaseModel],
     ) -> NoReturn:
         assert result_model_type is not None
         message = "Received unexpected response from server"
@@ -134,32 +134,30 @@ class GenericMixin(BaseMixin, Generic[TResultModel]):
         raise rest_api_exception from exception
 
 
-class GetMixin(GenericMixin[TResultModel]):
+class GetMixin(ResultMixin):
     def _get(self, path: str, result_model_type: type[TResultModel]) -> TResultModel:
-        response = self._send_request(HttpMethod.GET, path)
+        response = self._send_request(HttpMethod.GET.value, path)
         return self._handle_response(response, result_model_type)
 
 
-class ListMixin(
-    GenericMixin[TListResultModel],
-    Generic[TListResultModel, TQueryParams],
-    metaclass=ABCMeta,
-):
+class ListMixin(ResultMixin, Generic[TListResultModel], metaclass=ABCMeta):
     def _get_list(
         self,
         path: str,
         list_result_model_type: type[TListResultModel],
-        params: TQueryParams | None = None,
+        params: BaseModel | None = None,
     ) -> TListResultModel:
         params_dict = None if params is None else params.model_dump(exclude_unset=True)
-        response = self._send_request(HttpMethod.GET, path, params=params_dict)
+        response = self._send_request(HttpMethod.GET.value, path, params=params_dict)
         return self._handle_list_response(response, list_result_model_type)
 
     @abstractmethod
     def _validate_list_result_model(
-        self, response_data: Any, result_model_type: type[TListResultModel]
+        self,
+        response_data: Any,
+        result_model_type: type[TListResultModel],
     ) -> TListResultModel:
-        raise NotImplementedError
+        return result_model_type.model_validate(response_data)
 
     def _handle_list_response(
         self,
@@ -176,57 +174,53 @@ class ListMixin(
         list_result_model_type: type[TListResultModel],
     ) -> TListResultModel:
         try:
-            return self._validate_list_result_model(
-                response_data, list_result_model_type
-            )
+            return self._validate_list_result_model(response_data, list_result_model_type)
         except ValidationError as exception:
-            self._raise_invalid_response_schema(
-                response_data, exception, list_result_model_type
-            )
+            self._raise_invalid_response_schema(response_data, exception, list_result_model_type)
 
 
-class UploadMixin(GenericMixin[TResultModel], Generic[TInputModel, TResultModel]):
+class UploadMixin(ResultMixin):
     def _upload(
         self,
         method: HttpMethod,
         path: str,
-        model: TInputModel,
+        model: BaseModel,
         result_model_type: type[TResultModel],
     ) -> TResultModel:
         request_data = self._make_request_data(model)
-        response = self._send_request(method, path, json=request_data)
+        response = self._send_request(method.value, path, json=request_data)
         return self._handle_response(response, result_model_type)
 
     @staticmethod
-    def _make_request_data(model: TInputModel) -> Any:
-        return model.model_dump(exclude_unset=True)
+    def _make_request_data(model: BaseModel) -> Any:
+        return model.model_dump(mode="json", exclude_unset=True, by_alias=True)
 
 
-class PostMixin(UploadMixin[TInputModel, TResultModel]):
+class PostMixin(UploadMixin):
     def _post(
         self,
         path: str,
-        model: TInputModel,
+        model: BaseModel,
         result_model_type: type[TResultModel],
     ) -> TResultModel:
         return self._upload(HttpMethod.POST, path, model, result_model_type)
 
 
-class PutMixin(UploadMixin[TInputModel, TResultModel]):
+class PutMixin(UploadMixin):
     def _put(
         self,
         path: str,
-        model: TInputModel,
+        model: BaseModel,
         result_model_type: type[TResultModel],
     ) -> TResultModel:
         return self._upload(HttpMethod.PUT, path, model, result_model_type)
 
 
-class PatchMixin(UploadMixin[TInputModel, TResultModel]):
+class PatchMixin(UploadMixin):
     def _patch(
         self,
         path: str,
-        model: TInputModel,
+        model: BaseModel,
         result_model_type: type[TResultModel],
     ) -> TResultModel:
         return self._upload(HttpMethod.PATCH, path, model, result_model_type)
@@ -236,4 +230,4 @@ class DeleteMixin(BaseMixin):
     # TODO: allow for optional return type on delete
 
     def _delete(self, path: str) -> None:
-        self._send_request(HttpMethod.DELETE, path)
+        self._send_request(HttpMethod.DELETE.value, path)

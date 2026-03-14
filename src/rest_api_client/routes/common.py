@@ -28,7 +28,7 @@ class _BaseRoute:
     path: str
 
 
-class RetrieveRoute(GetMixin[TResultModel], _BaseRoute):
+class RetrieveRoute(GetMixin, _BaseRoute, Generic[TResultModel]):
     _get_result_model_type: type[TResultModel]
 
     def get(self, resource_id: ResourceId) -> TResultModel:
@@ -36,8 +36,9 @@ class RetrieveRoute(GetMixin[TResultModel], _BaseRoute):
 
 
 class ListRoute(
-    ListMixin[TListResultModel, TQueryParams],
+    ListMixin,
     _BaseRoute,
+    Generic[TListResultModel, TQueryParams],
     metaclass=ABCMeta,
 ):
     _get_list_result_model_type: type[TListResultModel]
@@ -46,14 +47,14 @@ class ListRoute(
         return self._get_list(self.path, self._get_list_result_model_type, params)
 
 
-class CreateRoute(PostMixin[TCreateModel, TCreateResultModel], _BaseRoute):
+class CreateRoute(PostMixin, _BaseRoute, Generic[TCreateModel, TCreateResultModel]):
     _create_result_model_type: type[TCreateResultModel]
 
     def create(self, model: TCreateModel) -> TCreateResultModel:
         return self._post(self.path, model, self._create_result_model_type)
 
 
-class UpdateRoute(PutMixin[TUpdateModel, TUpdateResultModel], _BaseRoute):
+class UpdateRoute(PutMixin, _BaseRoute, Generic[TUpdateModel, TUpdateResultModel]):
     _update_result_model_type: type[TUpdateResultModel]
 
     def update(
@@ -61,13 +62,13 @@ class UpdateRoute(PutMixin[TUpdateModel, TUpdateResultModel], _BaseRoute):
         resource_id: ResourceId,
         model: TUpdateModel,
     ) -> TUpdateResultModel:
-        return self._put(
-            f"{self.path}/{resource_id}", model, self._update_result_model_type
-        )
+        return self._put(f"{self.path}/{resource_id}", model, self._update_result_model_type)
 
 
 class PartialUpdateRoute(
-    PatchMixin[TPartialUpdateModel, TPartialUpdateResultModel], _BaseRoute
+    PatchMixin,
+    _BaseRoute,
+    Generic[TPartialUpdateModel, TPartialUpdateResultModel],
 ):
     _partial_update_result_model_type: type[TPartialUpdateResultModel]
 
@@ -86,7 +87,7 @@ class DeleteRoute(DeleteMixin, _BaseRoute):
         return self._delete(f"{self.path}/{resource_id}")
 
 
-class FullAPIRoutes(
+class FullApiRoutes(
     RetrieveRoute[TResultModel],
     ListRoute[TListResultModel, TQueryParams],
     CreateRoute[TCreateModel, TCreateResultModel],

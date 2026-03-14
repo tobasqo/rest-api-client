@@ -25,9 +25,7 @@ class RestApiClient:
         super().__init__()
 
         self.base_url = URL(parse_url(base_url))
-        self._session = session or Client(
-            auth=auth, timeout=timeout, base_url=self.base_url
-        )
+        self._session = session or Client(auth=auth, timeout=timeout, base_url=self.base_url)
         self._logger = logger or logging.getLogger(__name__)
 
     def close(self) -> None:
