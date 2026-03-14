@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, Generic
 
-from httpx import USE_CLIENT_DEFAULT, HTTPStatusError
+from httpx import USE_CLIENT_DEFAULT, AsyncClient, HTTPStatusError
 from httpx._models import Headers
 from pydantic import BaseModel, ValidationError
 
@@ -29,16 +29,20 @@ if TYPE_CHECKING:
 
 """
 TODOs:
-- async client and requests
 - request/response streaming
-- custom transports with rate limiting
 """
 
 
 class BaseMixin:
-    def __init__(self, session: Client, logger: logging.Logger | None = None) -> None:
+    def __init__(
+        self,
+        session: Client,
+        async_session: AsyncClient,
+        logger: logging.Logger | None = None,
+    ) -> None:
         super().__init__()
         self._session = session
+        self._async_session = async_session
         self._logger = logger or logging.getLogger(__name__)
 
     def _send_request(
@@ -68,6 +72,33 @@ class BaseMixin:
             **kwargs,
         )
 
+    async def _async_send_request(
+        self,
+        method: str,
+        path: str,
+        data: RequestData | None = None,
+        files: RequestFiles | None = None,
+        json: Any | None = None,
+        params: QueryParamTypes | None = None,
+        headers: HeaderTypes | None = None,
+        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
+        **kwargs,
+    ) -> Response:
+        self._logger.info("%s %s", method, path)
+        _headers = self._get_default_headers()
+        _headers.update(headers)
+        return await self._async_session.request(
+            method,
+            path,
+            data=data,
+            files=files,
+            json=json,
+            params=params,
+            headers=_headers,
+            follow_redirects=follow_redirects,
+            **kwargs,
+        )
+
     # noinspection PyMethodMayBeStatic
     def _get_default_headers(self) -> Headers:
         # TODO: update
@@ -84,7 +115,9 @@ class BaseMixin:
         except HTTPStatusError as exception:
             status_code = HttpStatusCode.from_value(response.status_code)
             rest_api_exception = RestApiHttpError(status_code)
-            self._logger.exception("%s", response.status_code, exc_info=rest_api_exception)
+            self._logger.exception(
+                "%d - %s", response.status_code, response.text, exc_info=rest_api_exception
+            )
             raise rest_api_exception from exception
 
     def _get_data_from_response(self, response: Response) -> Any:
@@ -139,6 +172,10 @@ class GetMixin(ResultMixin):
         response = self._send_request(HttpMethod.GET.value, path)
         return self._handle_response(response, result_model_type)
 
+    async def _async_get(self, path: str, result_model_type: type[TResultModel]) -> TResultModel:
+        response = await self._async_send_request(HttpMethod.GET.value, path)
+        return self._handle_response(response, result_model_type)
+
 
 class ListMixin(ResultMixin, Generic[TListResultModel], metaclass=ABCMeta):
     def _get_list(
@@ -149,6 +186,16 @@ class ListMixin(ResultMixin, Generic[TListResultModel], metaclass=ABCMeta):
     ) -> TListResultModel:
         params_dict = None if params is None else params.model_dump(exclude_unset=True)
         response = self._send_request(HttpMethod.GET.value, path, params=params_dict)
+        return self._handle_list_response(response, list_result_model_type)
+
+    async def _async_get_list(
+        self,
+        path: str,
+        list_result_model_type: type[TListResultModel],
+        params: BaseModel | None = None,
+    ) -> TListResultModel:
+        params_dict = None if params is None else params.model_dump(exclude_unset=True)
+        response = await self._async_send_request(HttpMethod.GET.value, path, params=params_dict)
         return self._handle_list_response(response, list_result_model_type)
 
     @abstractmethod
@@ -191,6 +238,17 @@ class UploadMixin(ResultMixin):
         response = self._send_request(method.value, path, json=request_data)
         return self._handle_response(response, result_model_type)
 
+    async def _async_upload(
+        self,
+        method: HttpMethod,
+        path: str,
+        model: BaseModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        request_data = self._make_request_data(model)
+        response = await self._async_send_request(method.value, path, json=request_data)
+        return self._handle_response(response, result_model_type)
+
     @staticmethod
     def _make_request_data(model: BaseModel) -> Any:
         return model.model_dump(mode="json", exclude_unset=True, by_alias=True)
@@ -205,6 +263,14 @@ class PostMixin(UploadMixin):
     ) -> TResultModel:
         return self._upload(HttpMethod.POST, path, model, result_model_type)
 
+    async def _async_post(
+        self,
+        path: str,
+        model: BaseModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return await self._async_upload(HttpMethod.POST, path, model, result_model_type)
+
 
 class PutMixin(UploadMixin):
     def _put(
@@ -214,6 +280,14 @@ class PutMixin(UploadMixin):
         result_model_type: type[TResultModel],
     ) -> TResultModel:
         return self._upload(HttpMethod.PUT, path, model, result_model_type)
+
+    async def _async_put(
+        self,
+        path: str,
+        model: BaseModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return await self._async_upload(HttpMethod.PUT, path, model, result_model_type)
 
 
 class PatchMixin(UploadMixin):
@@ -225,9 +299,20 @@ class PatchMixin(UploadMixin):
     ) -> TResultModel:
         return self._upload(HttpMethod.PATCH, path, model, result_model_type)
 
+    async def _async_patch(
+        self,
+        path: str,
+        model: BaseModel,
+        result_model_type: type[TResultModel],
+    ) -> TResultModel:
+        return await self._async_upload(HttpMethod.PATCH, path, model, result_model_type)
+
 
 class DeleteMixin(BaseMixin):
     # TODO: allow for optional return type on delete
 
     def _delete(self, path: str) -> None:
         self._send_request(HttpMethod.DELETE.value, path)
+
+    async def _async_delete(self, path: str) -> None:
+        await self._async_send_request(HttpMethod.DELETE.value, path)
