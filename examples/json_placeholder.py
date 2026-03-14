@@ -1,4 +1,5 @@
 # ruff: noqa: INP001
+import asyncio
 import logging
 from typing import Any, Generic, TypeVar
 
@@ -17,7 +18,10 @@ TListResultModel = TypeVar("TListResultModel", bound=BaseModel)
 
 class JSONPlaceholderBaseModel(BaseModel):
     model_config = ConfigDict(
-        alias_generator=to_camel, validate_by_name=True, validate_by_alias=True, extra="forbid"
+        alias_generator=to_camel,
+        validate_by_name=True,
+        validate_by_alias=True,
+        extra="forbid",
     )
 
 
@@ -447,12 +451,12 @@ class UsersRouter(
 class JSONPlaceholderClient(RestApiClient):
     def __init__(self) -> None:
         super().__init__(BASE_URL, timeout=10.0)
-        self.posts = PostsRouter(self._session, self._logger)
-        self.comments = CommentsRouter(self._session, self._logger)
-        self.albums = AlbumsRouter(self._session, self._logger)
-        self.photos = PhotosRouter(self._session, self._logger)
-        self.todos = TodosRouter(self._session, self._logger)
-        self.users = UsersRouter(self._session, self._logger)
+        self.posts = PostsRouter(self._session, self._async_session, self._logger)
+        self.comments = CommentsRouter(self._session, self._async_session, self._logger)
+        self.albums = AlbumsRouter(self._session, self._async_session, self._logger)
+        self.photos = PhotosRouter(self._session, self._async_session, self._logger)
+        self.todos = TodosRouter(self._session, self._async_session, self._logger)
+        self.users = UsersRouter(self._session, self._async_session, self._logger)
 
 
 def setup_logging() -> None:
@@ -460,9 +464,7 @@ def setup_logging() -> None:
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
-# ruff: disable[F841]
-
-
+# ruff: disable[F841, T201]
 def test_posts_routes(client: JSONPlaceholderClient) -> None:
     posts = client.posts
     post = posts.get(1)
@@ -558,8 +560,33 @@ def test_users_routes(client: JSONPlaceholderClient) -> None:
     posts_list = users.get_user_posts(1)
 
 
-# ruff: enable[F841]
-def main() -> None:
+async def async_example(client: JSONPlaceholderClient) -> None:
+    # Get a post
+    post = await client.posts.async_get(1)
+    print(f"Post: {post}")
+
+    # List posts
+    posts = await client.posts.async_get_list()
+    print(f"Number of posts: {len(posts.results)}")
+
+    # Create a new post
+    new_post = PostCreate(user_id=1, title="Test Post", body="This is a test")
+    created_post = await client.posts.async_create(new_post)
+    print(f"Created post: {created_post}")
+
+    # Update the post
+    update_data = PostUpdate(id=post.id, user_id=1, title="Updated Title", body="Updated body")
+    updated_post = await client.posts.async_update(post.id, update_data)
+    print(f"Updated post: {updated_post}")
+
+    # Delete the post
+    await client.posts.async_delete(created_post.id)
+    print("Post deleted")
+
+
+# ruff: enable[F841, T201]
+async def main() -> None:
+    # TODO: add error handling examples
     client = JSONPlaceholderClient()
     with client:
         test_posts_routes(client)
@@ -569,7 +596,10 @@ def main() -> None:
         test_todos_routes(client)
         test_users_routes(client)
 
+    async with client:
+        await async_example(client)
+
 
 if __name__ == "__main__":
     setup_logging()
-    main()
+    asyncio.run(main())
