@@ -112,23 +112,17 @@ class BaseMixin:
     def _check_api_error(self, response: Response) -> None:
         try:
             response.raise_for_status()
-        except HTTPStatusError as exception:
+        except HTTPStatusError as exc:
             status_code = HttpStatusCode.from_value(response.status_code)
-            rest_api_exception = RestApiHttpError(status_code)
-            self._logger.exception(
-                "%d - %s", response.status_code, response.text, exc_info=rest_api_exception
-            )
-            raise rest_api_exception from exception
+            self._logger.exception("%d - %s", response.status_code, response.text)
+            raise RestApiHttpError(status_code) from exc
 
     def _get_data_from_response(self, response: Response) -> Any:
         try:
             return response.json()
-        except JSONDecodeError as exception:
-            rest_api_exception = RestApiInvalidJsonError(response.text)
-            self._logger.exception(
-                "Received response is not a valid JSON", exc_info=rest_api_exception
-            )
-            raise rest_api_exception from exception
+        except JSONDecodeError as exc:
+            self._logger.exception("Received response is not a valid JSON")
+            raise RestApiInvalidJsonError(response.text) from exc
 
 
 class ResultMixin(BaseMixin):
@@ -146,25 +140,21 @@ class ResultMixin(BaseMixin):
         response_data: Any,
         result_model_type: type[TResultModel],
     ) -> TResultModel:
-        assert result_model_type is not None
         try:
             return result_model_type.model_validate(response_data)
-        except ValidationError as exception:
-            self._raise_invalid_response_schema(response_data, exception, result_model_type)
+        except ValidationError as exc:
+            self._raise_invalid_response_schema(response_data, exc, result_model_type)
 
     def _raise_invalid_response_schema(
         self,
         response_data: Any,
-        exception: ValidationError,
+        exc: ValidationError,
         result_model_type: type[BaseModel],
     ) -> NoReturn:
-        assert result_model_type is not None
         message = "Received unexpected response from server"
-        rest_api_exception = RestApiUnexpectedResponseSchemaError(
-            message, response_data, result_model_type
-        )
-        self._logger.exception("%s", message, exc_info=rest_api_exception)
-        raise rest_api_exception from exception
+        _exc = RestApiUnexpectedResponseSchemaError(message, response_data, result_model_type)
+        self._logger.exception("%s", message, exc_info=_exc)
+        raise _exc from exc
 
 
 class GetMixin(ResultMixin):
@@ -222,8 +212,8 @@ class ListMixin(ResultMixin, Generic[TListResultModel], metaclass=ABCMeta):
     ) -> TListResultModel:
         try:
             return self._validate_list_result_model(response_data, list_result_model_type)
-        except ValidationError as exception:
-            self._raise_invalid_response_schema(response_data, exception, list_result_model_type)
+        except ValidationError as exc:
+            self._raise_invalid_response_schema(response_data, exc, list_result_model_type)
 
 
 class UploadMixin(ResultMixin):
