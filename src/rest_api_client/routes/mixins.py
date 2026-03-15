@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from abc import ABCMeta, abstractmethod
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, Generic
 
@@ -167,7 +166,7 @@ class GetMixin(ResultMixin):
         return self._handle_response(response, result_model_type)
 
 
-class ListMixin(ResultMixin, Generic[TListResultModel], metaclass=ABCMeta):
+class ListMixin(ResultMixin, Generic[TListResultModel]):
     def _get_list(
         self,
         path: str,
@@ -184,11 +183,10 @@ class ListMixin(ResultMixin, Generic[TListResultModel], metaclass=ABCMeta):
         list_result_model_type: type[TListResultModel],
         params: BaseModel | None = None,
     ) -> TListResultModel:
-        params_dict = None if params is None else params.model_dump(exclude_unset=True)
+        params_dict = self._make_query_params(params)
         response = await self._async_send_request(HttpMethod.GET.value, path, params=params_dict)
         return self._handle_list_response(response, list_result_model_type)
 
-    @abstractmethod
     def _validate_list_result_model(
         self,
         response_data: Any,
@@ -214,6 +212,11 @@ class ListMixin(ResultMixin, Generic[TListResultModel], metaclass=ABCMeta):
             return self._validate_list_result_model(response_data, list_result_model_type)
         except ValidationError as exc:
             self._raise_invalid_response_schema(response_data, exc, list_result_model_type)
+
+    def _make_query_params(self, params: BaseModel | None) -> dict:
+        if params is None:
+            return {}
+        return params.model_dump(mode="json", exclude_unset=True, by_alias=True)
 
 
 class UploadMixin(ResultMixin):
