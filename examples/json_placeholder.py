@@ -6,9 +6,9 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from pydantic.alias_generators import to_camel
 
-from apix import ApixClient
-from apix.routes.common import CrudRoutes
-from apix.routes.mixins import ListMixin
+from restic import ResticClient
+from restic.routes.common import CrudRoutes
+from restic.routes.mixins import ListMixin
 
 BASE_URL = "https://jsonplaceholder.typicode.com/"
 
@@ -448,7 +448,7 @@ class UsersRouter(
         return self._get_list(f"{self.path}/{user_id}/posts", ListResult[Post])
 
 
-class JSONPlaceholderClient(ApixClient):
+class JSONPlaceholderClient(ResticClient):
     def __init__(self) -> None:
         super().__init__(BASE_URL, timeout=10.0)
         self.posts = PostsRouter(self._session, self._async_session, self._logger)

@@ -1,6 +1,6 @@
 from typing import Generic
 
-from apix.routes._models import (
+from restic.routes._models import (
     TCreate,
     TCreateResult,
     TListResultModel,
@@ -11,7 +11,7 @@ from apix.routes._models import (
     TUpdate,
     TUpdateResult,
 )
-from apix.routes.mixins import (
+from restic.routes.mixins import (
     DeleteMixin,
     GetMixin,
     ListMixin,

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from httpx import URL, AsyncClient, Auth, Client, Timeout
 
-from apix.utils.urls import parse_url
+from restic.utils.urls import parse_url
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-class ApixClient:
+class ResticClient:
     def __init__(
         self,
         base_url: str,

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, HttpUrl, ValidationError
 
-from apix.exceptions import ApixInvalidUrlError
+from restic.exceptions import ResticInvalidUrlError
 
 
 class UrlValidator(BaseModel):
@@ -12,6 +12,6 @@ def parse_url(url: str) -> str:
         # noinspection PyTypeChecker
         _ = UrlValidator(url=url)  # type: ignore[arg-type]
     except ValidationError as exc:
-        raise ApixInvalidUrlError(url) from exc
+        raise ResticInvalidUrlError(url) from exc
 
     return url.rstrip("/")

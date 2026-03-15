@@ -1,7 +1,7 @@
-# Apix
+# Restic
 
-[![PyPI version](https://badge.fury.io/py/apix.svg)](https://pypi.org/project/apix/)
-[![Python versions](https://img.shields.io/pypi/pyversions/apix.svg)](https://pypi.org/project/apix/)
+[![PyPI version](https://badge.fury.io/py/restic.svg)](https://pypi.org/project/restic/)
+[![Python versions](https://img.shields.io/pypi/pyversions/restic.svg)](https://pypi.org/project/restic/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A modern, type-safe Python library for building robust REST API clients with automatic Pydantic validation, async support, and extensible route patterns.
@@ -20,13 +20,13 @@ A modern, type-safe Python library for building robust REST API clients with aut
 **Requirements:** Python 3.10+
 
 ```bash
-pip install apix
+pip install restic
 ```
 
 Or with UV:
 
 ```bash
-uv add apix
+uv add restic
 ```
 
 ## Dependencies
@@ -37,7 +37,7 @@ uv add apix
 
 ## Usage & Examples
 
-The package provides a `ApixClient` base class and reusable route mixins for building type-safe API clients. Routes are composed using mixins for different HTTP operations, with automatic request/response validation via Pydantic models.
+The package provides a `ResticClient` base class and reusable route mixins for building type-safe API clients. Routes are composed using mixins for different HTTP operations, with automatic request/response validation via Pydantic models.
 
 See the `examples/` directory for complete usage examples:
 
@@ -51,8 +51,8 @@ The code is simple enough that users can learn how to use it directly from the s
 
 ```bash
 # Clone the repository
-git clone https://github.com/tobasqo/apix.git
-cd apix
+git clone https://github.com/tobasqo/restic.git
+cd restic
 
 # Install with UV
 uv sync

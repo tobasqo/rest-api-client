@@ -8,14 +8,14 @@ from httpx import USE_CLIENT_DEFAULT, AsyncClient, HTTPStatusError
 from httpx._models import Headers
 from pydantic import BaseModel, ValidationError
 
-from apix.exceptions import (
-    ApixHttpError,
-    ApixInvalidJsonError,
-    ApixResponseSchemaError,
+from restic.exceptions import (
+    ResticHttpError,
+    ResticInvalidJsonError,
+    ResticResponseSchemaError,
 )
-from apix.http_methods import HttpMethod
-from apix.routes._models import TListResultModel
-from apix.status_codes import HttpStatusCode
+from restic.http_methods import HttpMethod
+from restic.routes._models import TListResultModel
+from restic.status_codes import HttpStatusCode
 
 if TYPE_CHECKING:
     from typing import Any, NoReturn
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from httpx._client import UseClientDefault
     from httpx._types import HeaderTypes, QueryParamTypes, RequestData, RequestFiles
 
-    from apix.routes._models import TResultModel
+    from restic.routes._models import TResultModel
 
 """
 TODOs:
@@ -114,14 +114,14 @@ class BaseMixin:
         except HTTPStatusError as exc:
             status_code = HttpStatusCode.from_value(response.status_code)
             self._logger.exception("%d - %s", response.status_code, response.text)
-            raise ApixHttpError(status_code) from exc
+            raise ResticHttpError(status_code) from exc
 
     def _get_data_from_response(self, response: Response) -> Any:
         try:
             return response.json()
         except JSONDecodeError as exc:
             self._logger.exception("Received response is not a valid JSON")
-            raise ApixInvalidJsonError(response.text) from exc
+            raise ResticInvalidJsonError(response.text) from exc
 
 
 class ResultMixin(BaseMixin):
@@ -151,7 +151,7 @@ class ResultMixin(BaseMixin):
         result_model_type: type[BaseModel],
     ) -> NoReturn:
         message = "Received unexpected response from server"
-        _exc = ApixResponseSchemaError(message, response_data, result_model_type)
+        _exc = ResticResponseSchemaError(message, response_data, result_model_type)
         self._logger.exception("%s", message, exc_info=_exc)
         raise _exc from exc
 
