@@ -87,8 +87,13 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## References
 
-These libraries are not integrated into the package but are worth mentioning for users who want to extend functionality:
+### Packages
+
+These libraries are not integrated into the package but are worth mentioning for those who want to extend functionality:
 
 - [Tenacity](https://tenacity.readthedocs.io/en/latest/) - retry on errors
 - [HTTPX Limiter](https://pypi.org/project/httpx-limiter/) - rate limiting
+
+### Other resources
+
 - [Async usage of httpx](https://oneuptime.com/blog/post/2026-02-03-python-httpx-async-requests/view)
