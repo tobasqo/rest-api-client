@@ -8,14 +8,14 @@ from httpx import USE_CLIENT_DEFAULT, AsyncClient, HTTPStatusError
 from httpx._models import Headers
 from pydantic import BaseModel, ValidationError
 
-from rest_api_client.exceptions import (
-    RestApiHttpError,
-    RestApiInvalidJsonError,
-    RestApiUnexpectedResponseSchemaError,
+from apix.exceptions import (
+    ApixHttpError,
+    ApixInvalidJsonError,
+    ApixUnexpectedResponseSchemaError,
 )
-from rest_api_client.http_methods import HttpMethod
-from rest_api_client.routes._models import TListResultModel
-from rest_api_client.status_codes import HttpStatusCode
+from apix.http_methods import HttpMethod
+from apix.routes._models import TListResultModel
+from apix.status_codes import HttpStatusCode
 
 if TYPE_CHECKING:
     from typing import Any, NoReturn
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from httpx._client import UseClientDefault
     from httpx._types import HeaderTypes, QueryParamTypes, RequestData, RequestFiles
 
-    from rest_api_client.routes._models import TResultModel
+    from apix.routes._models import TResultModel
 
 """
 TODOs:
@@ -114,14 +114,14 @@ class BaseMixin:
         except HTTPStatusError as exc:
             status_code = HttpStatusCode.from_value(response.status_code)
             self._logger.exception("%d - %s", response.status_code, response.text)
-            raise RestApiHttpError(status_code) from exc
+            raise ApixHttpError(status_code) from exc
 
     def _get_data_from_response(self, response: Response) -> Any:
         try:
             return response.json()
         except JSONDecodeError as exc:
             self._logger.exception("Received response is not a valid JSON")
-            raise RestApiInvalidJsonError(response.text) from exc
+            raise ApixInvalidJsonError(response.text) from exc
 
 
 class ResultMixin(BaseMixin):
@@ -151,7 +151,7 @@ class ResultMixin(BaseMixin):
         result_model_type: type[BaseModel],
     ) -> NoReturn:
         message = "Received unexpected response from server"
-        _exc = RestApiUnexpectedResponseSchemaError(message, response_data, result_model_type)
+        _exc = ApixUnexpectedResponseSchemaError(message, response_data, result_model_type)
         self._logger.exception("%s", message, exc_info=_exc)
         raise _exc from exc
 

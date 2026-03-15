@@ -1,6 +1,6 @@
 from pydantic import BaseModel, HttpUrl, ValidationError
 
-from rest_api_client.exceptions import RestApiInvalidUrlError
+from apix.exceptions import ApixInvalidUrlError
 
 
 class BaseUrl(BaseModel):
@@ -12,6 +12,6 @@ def parse_url(url: str) -> str:
         # noinspection PyTypeChecker
         _ = BaseUrl(url=url)  # type: ignore[arg-type]
     except ValidationError as exc:
-        raise RestApiInvalidUrlError(url) from exc
+        raise ApixInvalidUrlError(url) from exc
 
     return url.rstrip("/")

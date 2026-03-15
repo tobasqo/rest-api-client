@@ -5,23 +5,23 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from rest_api_client.status_codes import HttpStatusCode
+    from apix.status_codes import HttpStatusCode
 
 
-class RestApiError(Exception):
+class ApixError(Exception):
     pass
 
 
-class RestApiInvalidUrlError(RestApiError):
+class ApixInvalidUrlError(ApixError):
     pass
 
 
-class RestApiInvalidJsonError(RestApiError):
+class ApixInvalidJsonError(ApixError):
     def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
-class RestApiUnexpectedResponseSchemaError(RestApiError):
+class ApixUnexpectedResponseSchemaError(ApixError):
     def __init__(
         self,
         message: str,
@@ -33,7 +33,7 @@ class RestApiUnexpectedResponseSchemaError(RestApiError):
         self.expected_result_type = expected_result_type
 
 
-class RestApiHttpError(RestApiError):
+class ApixHttpError(ApixError):
     def __init__(self, status_code: HttpStatusCode) -> None:
         super().__init__(status_code)
         self.status_code = status_code

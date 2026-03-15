@@ -1,7 +1,7 @@
 from abc import ABCMeta
 from typing import Generic
 
-from rest_api_client.routes._models import (
+from apix.routes._models import (
     TCreateModel,
     TCreateResultModel,
     TListResultModel,
@@ -12,7 +12,7 @@ from rest_api_client.routes._models import (
     TUpdateModel,
     TUpdateResultModel,
 )
-from rest_api_client.routes.mixins import (
+from apix.routes.mixins import (
     DeleteMixin,
     GetMixin,
     ListMixin,
