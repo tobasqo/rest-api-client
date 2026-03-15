@@ -1,6 +1,6 @@
 [project]
 name = "restic"
-version = "0.1.0"
+version = "0.1.0a"
 readme = "README.md"
 authors = [{ name = "tobasqo", email = "szymon.j.jaskowski@gmail.com" }]
 description = "A modern, type-safe Python library for building robust REST API clients with automatic Pydantic validation, async support, and extensible route patterns."
