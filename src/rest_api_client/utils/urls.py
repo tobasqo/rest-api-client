@@ -14,7 +14,4 @@ def parse_url(url: str) -> str:
     except ValidationError as exc:
         raise RestApiInvalidUrlError(url) from exc
 
-    if url.endswith("/"):
-        return url[:-1]
-
-    return url if not url.endswith("/") else url[:-1]
+    return url.rstrip("/")
