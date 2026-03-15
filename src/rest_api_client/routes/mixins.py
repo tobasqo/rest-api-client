@@ -173,7 +173,7 @@ class ListMixin(ResultMixin, Generic[TListResultModel]):
         list_result_model_type: type[TListResultModel],
         params: BaseModel | None = None,
     ) -> TListResultModel:
-        params_dict = None if params is None else params.model_dump(exclude_unset=True)
+        params_dict = self._make_query_params(params)
         response = self._send_request(HttpMethod.GET.value, path, params=params_dict)
         return self._handle_list_response(response, list_result_model_type)
 
@@ -213,7 +213,7 @@ class ListMixin(ResultMixin, Generic[TListResultModel]):
         except ValidationError as exc:
             self._raise_invalid_response_schema(response_data, exc, list_result_model_type)
 
-    def _make_query_params(self, params: BaseModel | None) -> dict:
+    def _make_query_params(self, params: BaseModel | None) -> dict[str, Any]:
         if params is None:
             return {}
         return params.model_dump(mode="json", exclude_unset=True, by_alias=True)
@@ -305,7 +305,9 @@ class DeleteMixin(BaseMixin):
     # TODO: allow for optional return type on delete
 
     def _delete(self, path: str) -> None:
-        self._send_request(HttpMethod.DELETE.value, path)
+        response = self._send_request(HttpMethod.DELETE.value, path)
+        self._check_api_error(response)
 
     async def _async_delete(self, path: str) -> None:
-        await self._async_send_request(HttpMethod.DELETE.value, path)
+        response = await self._async_send_request(HttpMethod.DELETE.value, path)
+        self._check_api_error(response)
