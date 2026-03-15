@@ -21,7 +21,7 @@ class ApixInvalidJsonError(ApixError):
         super().__init__(message)
 
 
-class ApixUnexpectedResponseSchemaError(ApixError):
+class ApixResponseSchemaError(ApixError):
     def __init__(
         self,
         message: str,

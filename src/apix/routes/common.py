@@ -1,16 +1,15 @@
-from abc import ABCMeta
 from typing import Generic
 
 from apix.routes._models import (
-    TCreateModel,
-    TCreateResultModel,
+    TCreate,
+    TCreateResult,
     TListResultModel,
-    TPartialUpdateModel,
-    TPartialUpdateResultModel,
+    TPartialUpdate,
+    TPartialUpdateResult,
     TQueryParams,
     TResultModel,
-    TUpdateModel,
-    TUpdateResultModel,
+    TUpdate,
+    TUpdateResult,
 )
 from apix.routes.mixins import (
     DeleteMixin,
@@ -28,7 +27,7 @@ class _BaseRoute:
     path: str
 
 
-class RetrieveRoute(GetMixin, _BaseRoute, Generic[TResultModel]):
+class GetRoute(GetMixin, _BaseRoute, Generic[TResultModel]):
     _get_result_model_type: type[TResultModel]
 
     def get(self, resource_id: ResourceId) -> TResultModel:
@@ -42,7 +41,6 @@ class ListRoute(
     ListMixin,
     _BaseRoute,
     Generic[TListResultModel, TQueryParams],
-    metaclass=ABCMeta,
 ):
     _get_list_result_model_type: type[TListResultModel]
 
@@ -53,31 +51,31 @@ class ListRoute(
         return await self._async_get_list(self.path, self._get_list_result_model_type, params)
 
 
-class CreateRoute(PostMixin, _BaseRoute, Generic[TCreateModel, TCreateResultModel]):
-    _create_result_model_type: type[TCreateResultModel]
+class CreateRoute(PostMixin, _BaseRoute, Generic[TCreate, TCreateResult]):
+    _create_result_model_type: type[TCreateResult]
 
-    def create(self, model: TCreateModel) -> TCreateResultModel:
+    def create(self, model: TCreate) -> TCreateResult:
         return self._post(self.path, model, self._create_result_model_type)
 
-    async def async_create(self, model: TCreateModel) -> TCreateResultModel:
+    async def async_create(self, model: TCreate) -> TCreateResult:
         return await self._async_post(self.path, model, self._create_result_model_type)
 
 
-class UpdateRoute(PutMixin, _BaseRoute, Generic[TUpdateModel, TUpdateResultModel]):
-    _update_result_model_type: type[TUpdateResultModel]
+class UpdateRoute(PutMixin, _BaseRoute, Generic[TUpdate, TUpdateResult]):
+    _update_result_model_type: type[TUpdateResult]
 
     def update(
         self,
         resource_id: ResourceId,
-        model: TUpdateModel,
-    ) -> TUpdateResultModel:
+        model: TUpdate,
+    ) -> TUpdateResult:
         return self._put(f"{self.path}/{resource_id}", model, self._update_result_model_type)
 
     async def async_update(
         self,
         resource_id: ResourceId,
-        model: TUpdateModel,
-    ) -> TUpdateResultModel:
+        model: TUpdate,
+    ) -> TUpdateResult:
         return await self._async_put(
             f"{self.path}/{resource_id}", model, self._update_result_model_type
         )
@@ -86,15 +84,15 @@ class UpdateRoute(PutMixin, _BaseRoute, Generic[TUpdateModel, TUpdateResultModel
 class PartialUpdateRoute(
     PatchMixin,
     _BaseRoute,
-    Generic[TPartialUpdateModel, TPartialUpdateResultModel],
+    Generic[TPartialUpdate, TPartialUpdateResult],
 ):
-    _partial_update_result_model_type: type[TPartialUpdateResultModel]
+    _partial_update_result_model_type: type[TPartialUpdateResult]
 
     def partial_update(
         self,
         resource_id: ResourceId,
-        model: TPartialUpdateModel,
-    ) -> TPartialUpdateResultModel:
+        model: TPartialUpdate,
+    ) -> TPartialUpdateResult:
         return self._patch(
             f"{self.path}/{resource_id}", model, self._partial_update_result_model_type
         )
@@ -102,8 +100,8 @@ class PartialUpdateRoute(
     async def async_partial_update(
         self,
         resource_id: ResourceId,
-        model: TPartialUpdateModel,
-    ) -> TPartialUpdateResultModel:
+        model: TPartialUpdate,
+    ) -> TPartialUpdateResult:
         return await self._async_patch(
             f"{self.path}/{resource_id}", model, self._partial_update_result_model_type
         )
@@ -117,24 +115,23 @@ class DeleteRoute(DeleteMixin, _BaseRoute):
         return await self._async_delete(f"{self.path}/{resource_id}")
 
 
-class FullApiRoutes(
-    RetrieveRoute[TResultModel],
+class CrudRoutes(
+    GetRoute[TResultModel],
     ListRoute[TListResultModel, TQueryParams],
-    CreateRoute[TCreateModel, TCreateResultModel],
-    UpdateRoute[TUpdateModel, TUpdateResultModel],
-    PartialUpdateRoute[TPartialUpdateModel, TPartialUpdateResultModel],
+    CreateRoute[TCreate, TCreateResult],
+    UpdateRoute[TUpdate, TUpdateResult],
+    PartialUpdateRoute[TPartialUpdate, TPartialUpdateResult],
     DeleteRoute,
     Generic[
         TResultModel,
         TListResultModel,
         TQueryParams,
-        TCreateModel,
-        TCreateResultModel,
-        TUpdateModel,
-        TUpdateResultModel,
-        TPartialUpdateModel,
-        TPartialUpdateResultModel,
+        TCreate,
+        TCreateResult,
+        TUpdate,
+        TUpdateResult,
+        TPartialUpdate,
+        TPartialUpdateResult,
     ],
-    metaclass=ABCMeta,
 ):
     pass

@@ -3,14 +3,14 @@ from pydantic import BaseModel, HttpUrl, ValidationError
 from apix.exceptions import ApixInvalidUrlError
 
 
-class BaseUrl(BaseModel):
+class UrlValidator(BaseModel):
     url: HttpUrl
 
 
 def parse_url(url: str) -> str:
     try:
         # noinspection PyTypeChecker
-        _ = BaseUrl(url=url)  # type: ignore[arg-type]
+        _ = UrlValidator(url=url)  # type: ignore[arg-type]
     except ValidationError as exc:
         raise ApixInvalidUrlError(url) from exc
 

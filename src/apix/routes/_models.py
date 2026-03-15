@@ -8,11 +8,11 @@ TResultModel = TypeVar("TResultModel", bound=BaseModel)
 TListResultModel = TypeVar("TListResultModel", bound=BaseModel)
 TQueryParams = TypeVar("TQueryParams", bound=BaseModel | None)
 
-TCreateModel = TypeVar("TCreateModel", bound=BaseModel)
-TCreateResultModel = TypeVar("TCreateResultModel", bound=BaseModel)
+TCreate = TypeVar("TCreate", bound=BaseModel)
+TCreateResult = TypeVar("TCreateResult", bound=BaseModel)
 
-TUpdateModel = TypeVar("TUpdateModel", bound=BaseModel)
-TUpdateResultModel = TypeVar("TUpdateResultModel", bound=BaseModel)
+TUpdate = TypeVar("TUpdate", bound=BaseModel)
+TUpdateResult = TypeVar("TUpdateResult", bound=BaseModel)
 
-TPartialUpdateModel = TypeVar("TPartialUpdateModel", bound=BaseModel)
-TPartialUpdateResultModel = TypeVar("TPartialUpdateResultModel", bound=BaseModel)
+TPartialUpdate = TypeVar("TPartialUpdate", bound=BaseModel)
+TPartialUpdateResult = TypeVar("TPartialUpdateResult", bound=BaseModel)

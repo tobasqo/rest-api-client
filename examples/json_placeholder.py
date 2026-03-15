@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from pydantic.alias_generators import to_camel
 
 from apix import ApixClient
-from apix.routes.common import FullApiRoutes
+from apix.routes.common import CrudRoutes
 from apix.routes.mixins import ListMixin
 
 BASE_URL = "https://jsonplaceholder.typicode.com/"
@@ -303,7 +303,7 @@ class UserPartialUpdate(JSONPlaceholderBaseModel):
 
 class PostsRouter(
     JSONPlaceholderListMixin,
-    FullApiRoutes[
+    CrudRoutes[
         Post,
         ListResult[Post],
         PostQueryParams,
@@ -328,7 +328,7 @@ class PostsRouter(
 
 class CommentsRouter(
     JSONPlaceholderListMixin,
-    FullApiRoutes[
+    CrudRoutes[
         Comment,
         ListResult[Comment],
         CommentQueryParams,
@@ -350,7 +350,7 @@ class CommentsRouter(
 
 class AlbumsRouter(
     JSONPlaceholderListMixin,
-    FullApiRoutes[
+    CrudRoutes[
         Album,
         ListResult[Album],
         AlbumQueryParams,
@@ -375,7 +375,7 @@ class AlbumsRouter(
 
 class PhotosRouter(
     JSONPlaceholderListMixin,
-    FullApiRoutes[
+    CrudRoutes[
         Photo,
         ListResult[Photo],
         PhotoQueryParams,
@@ -397,7 +397,7 @@ class PhotosRouter(
 
 class TodosRouter(
     JSONPlaceholderListMixin,
-    FullApiRoutes[
+    CrudRoutes[
         Todo,
         ListResult[Todo],
         TodoQueryParams,
@@ -419,7 +419,7 @@ class TodosRouter(
 
 class UsersRouter(
     JSONPlaceholderListMixin,
-    FullApiRoutes[
+    CrudRoutes[
         User,
         ListResult[User],
         UserQueryParams,

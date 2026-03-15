@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 from apix.exceptions import (
     ApixHttpError,
     ApixInvalidJsonError,
-    ApixUnexpectedResponseSchemaError,
+    ApixResponseSchemaError,
 )
 from apix.http_methods import HttpMethod
 from apix.routes._models import TListResultModel
@@ -142,16 +142,16 @@ class ResultMixin(BaseMixin):
         try:
             return result_model_type.model_validate(response_data)
         except ValidationError as exc:
-            self._raise_invalid_response_schema(response_data, exc, result_model_type)
+            self._raise_response_schema_error(response_data, exc, result_model_type)
 
-    def _raise_invalid_response_schema(
+    def _raise_response_schema_error(
         self,
         response_data: Any,
         exc: ValidationError,
         result_model_type: type[BaseModel],
     ) -> NoReturn:
         message = "Received unexpected response from server"
-        _exc = ApixUnexpectedResponseSchemaError(message, response_data, result_model_type)
+        _exc = ApixResponseSchemaError(message, response_data, result_model_type)
         self._logger.exception("%s", message, exc_info=_exc)
         raise _exc from exc
 
@@ -211,7 +211,7 @@ class ListMixin(ResultMixin, Generic[TListResultModel]):
         try:
             return self._validate_list_result_model(response_data, list_result_model_type)
         except ValidationError as exc:
-            self._raise_invalid_response_schema(response_data, exc, list_result_model_type)
+            self._raise_response_schema_error(response_data, exc, list_result_model_type)
 
     def _make_query_params(self, params: BaseModel | None) -> dict[str, Any]:
         if params is None:
